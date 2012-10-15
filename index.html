@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Blobbys</title>
+
+<style type="text/css">
+#container{ position: absolute; top: 0; left: 0; margin: 0; padding: 0; width: 100%; height: 100%; background: rgb( 230,230,230 ); overflow: hidden; }
+</style>
+
+</head>
+<body>
+
+<div id="container">
+	<canvas id="sketch"></canvas>
+</div>
+
+<script type="text/javascript">
+
+//GLOBALS
+var	CANVAS_WIDTH = 2400,
+	CANVAS_HEIGHT = 1800,
+	WINDOW_WIDTH = document.documentElement.clientWidth,
+	WINDOW_HEIGHT = document.documentElement.clientHeight,
+	CANVAS_ANIMATE = true,
+	MOUSE_POS = new PVector( 0, 0 ),
+	GRAV = 6.67 * Math.pow( 10, -11 );
+
+//canvas
+var	canvas = document.getElementById( 'sketch' );
+	canvas.height = CANVAS_HEIGHT;
+	canvas.width = CANVAS_WIDTH;
+	
+var	ctx = canvas.getContext( '2d' );
+	ctx.line = drawLine;
+
+function drawLine( x1, y1, x2, y2 ){
+	this.beginPath();
+	this.moveTo( x1, y1 );
+	this.lineTo( x2, y2 );
+	this.stroke();
+}
+
+//event listeners
+canvas.addEventListener( 'mousemove', onCanvasMousemove, false );
+canvas.addEventListener( 'mousedown', onCanvasMousedown, false );
+canvas.addEventListener( 'mouseup', onCanvasMouseup, false );
+window.onresize = onWindowResize;
+
+//event handlers
+function onCanvasMousemove( e ){
+	MOUSE_POS.x = e.clientX;
+	MOUSE_POS.y = e.clientY;
+}
+
+function onCanvasMousedown( e ){
+	CANVAS_ANIMATE = false;
+}
+
+function onCanvasMouseup( e ){
+	CANVAS_ANIMATE = true;
+}
+
+function onWindowResize(){
+	WINDOW_WIDTH = document.documentElement.clientWidth;
+	WINDOW_HEIGHT = document.documentElement.clientHeight;
+}
+
+function draw(){
+	ctx.fillStyle = 'rgba( 0,0,0,1 )';
+	ctx.fillRect( 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT );
+	ctx.fillStyle = 'rgba( 255,255,255,0.1 )';
+	SolSys.interact();
+}
+
+ctx.fillRect( 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT );
+ctx.strokeStyle = 'rgba( 255,255,255,0.15 )';
+setInterval( 'draw()', 30 );
+
+var SolSys = new PlanetGroup( 120 );
+
+//PlanetGroup Class
+function PlanetGroup( n ){
+	this.planets = new Array();
+	for( i = 0; i < n; i++ ){
+		this.planets.push( new Planet() );
+	}
+	this.addPlanet = function( p ){
+		this.planets.push( p );
+	}
+	this.interact = function(){
+		var	pL = this.planets.length,
+			pG = this.planets;
+		for( i = 0; i < pL; i++ ){
+			var p = this.planets[i];
+			//p.active = ( PVector.prototype.subt( MOUSE_POS, p.location ).mag() <= p.radius * 2 ) ? true : false;
+			if( CANVAS_ANIMATE ){
+				p.peeps.length = 0;
+				for( d = 0; d < pL; d++ ){
+					p.update( this.planets[d] );
+				}
+				p.locate();
+			}
+		}
+		for( i = 0; i < pL; i++ ){
+			var	p = this.planets[i],
+				pp = p.peeps,
+				ppL = pp.length;
+			if ( ppL > 0 ){
+				for( k = 0; k < ppL && k < 3; k++ ){
+					var	ppk = pp[k];
+					var	dd = PVector.prototype.subt( p.location, ppk.location ).mag();
+					if( dd < ppk.reach ) p.location.line( ppk.location );
+				}
+			}
+			p.render();
+		}
+	}
+}
+
+//Planet Class
+function Planet( r ){
+	if( !r ) var r = Math.random() * 20 + 2;
+	this.radius = r;
+	this.reach = r * 4;
+	this.peeps = new Array();
+	this.mass = Math.PI * Math.pow( r, 2 ) * 7.5 * Math.pow( 10, 8 );
+	this.location = new PVector( Math.random() * WINDOW_WIDTH + r , Math.random() * WINDOW_HEIGHT + r );
+	this.velocity = new PVector( Math.random() * 2, Math.random() * 2 );
+	this.acceleration = new PVector( 0, 0 );
+	//this.acceleration = new PVector( 0.001*(CANVAS_WIDTH/2 - this.location.x) , 0.001*(CANVAS_HEIGHT/2 - this.location.y) );
+}
+Planet.prototype.update = function( p ){
+	var dir = PVector.prototype.subt( this.location , p.location );
+	if( dir.x ) var dist = dir.mag();
+	if( dist > this.radius && dist < p.reach ) {
+		this.peeps.push( p );
+		grav_loc = -GRAV * ( this.mass + p.mass ) / Math.pow( dist, 2 );
+		dir.normalize();
+		dir.mult( grav_loc );
+		this.acceleration.mult( 0.85 );
+		//this.acceleration = dir;
+		this.acceleration = PVector.prototype.add( this.acceleration, dir );
+		//p.active_parent = ( a ) ? true : false;
+	} //else { p.active_parent = false; }
+}
+Planet.prototype.locate = function(){
+	this.velocity.add( this.acceleration );
+	this.velocity.limit( 5 );
+	this.location.add( this.velocity );	
+	this.checkEdges();
+}
+Planet.prototype.render = function(){
+	var	r = this.radius, x = this.location.x , y = this.location.y, l = this.location;
+	/*var grad = ctx.createRadialGradient( x - r/2, y - r/2, 0, x, y, r );
+	grad.addColorStop( 0, 'rgba( 255,255,255,0.2 )' );
+	grad.addColorStop( 0.4, 'rgba( 255,255,255,0.15 )' );
+	grad.addColorStop( 1, 'rgba( 255,255,255,0.05 )' );
+	ctx.fillStyle = grad;*/
+	ctx.beginPath();
+	ctx.arc( x , y , r, 0, Math.PI *2, false );
+	ctx.closePath();
+	ctx.fill();
+	ctx.stroke();
+}
+Planet.prototype.checkEdges = function(){
+	if( this.location.x > WINDOW_WIDTH ){
+		this.location.x = 0;
+	} else if( this.location.x < 0 ){
+		this.location.x = WINDOW_WIDTH;
+	}
+	if( this.location.y > WINDOW_HEIGHT ){
+		this.location.y = 0;
+	} else if( this.location.y < 0 ){
+		this.location.y = WINDOW_HEIGHT;
+	}
+}
+
+
+//Vector Class
+function PVector( x1, y1 ){
+	this.x = x1;
+	this.y = y1;	
+}
+PVector.prototype.add = function( v1, v2 ){
+	if( v2 ){
+		v3 = new PVector( v1.x + v2.x, v1.y + v2.y );
+		return v3;
+	} else {
+		this.x = this.x + v1.x;
+		this.y = this.y + v1.y;
+	}
+}
+PVector.prototype.subt = function( v1, v2 ){
+	if( v2 ){
+		v3 = new PVector( v1.x - v2.x, v1.y - v2.y );
+		return v3;
+	} else {
+		this.x = this.x - v1.x;
+		this.y = this.y - v1.y;
+	}
+}
+PVector.prototype.mult = function( s ){
+	this.x = this.x * s;
+	this.y = this.y * s;
+}
+PVector.prototype.div = function( s ){
+	this.x = this.x / s;
+	this.y = this.y / s;
+}
+PVector.prototype.mag = function(){
+	return Math.sqrt( Math.pow( this.x, 2 ) + Math.pow( this.y, 2 ) );
+}
+PVector.prototype.limit = function( s ){
+	if( this.mag() > s ){
+		var theta = Math.atan2( this.y, this.x );
+		this.x = Math.cos( theta ) * s;
+		this.y = Math.sin( theta ) * s;
+	}
+}
+PVector.prototype.normalize = function(){
+	m = this.mag();
+	if( m != 0 ) this.div(m);	
+}
+PVector.prototype.line = function( v ){
+	ctx.line( this.x, this.y, v.x, v.y );
+}
+
+
+
+</script>
+</body>
+</html>
